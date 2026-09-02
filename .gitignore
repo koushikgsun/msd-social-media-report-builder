@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+exports/*
+workspace_data/assets/*
+test-results/
+*.log

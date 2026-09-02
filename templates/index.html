@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MSD Social Media Report Builder</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-bar">
+      <div class="app-brand">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="MSD mark">
+        <div><strong>Social Media Report Builder</strong><span>Local workspace</span></div>
+      </div>
+      <div class="app-actions">
+        <button class="button ghost" id="new-report">New</button>
+        <button class="button ghost" id="save-project">Save project</button>
+        <label class="button ghost file-button">Open project<input id="open-project" type="file" accept="application/json"></label>
+        <button class="button primary" id="export-report">Export one HTML file</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="left-panel panel">
+        <div class="panel-head"><div><span class="eyebrow">Build</span><h2>Modules</h2></div></div>
+        <p class="helper">Drag a module into the report, or click to add it.</p>
+        <div id="module-library" class="module-library">
+          <button draggable="true" data-add="kpi"><span class="module-icon">12</span><span><b>KPI card</b><small>Value from your data</small></span></button>
+          <button draggable="true" data-add="chart"><span class="module-icon bars">▥</span><span><b>Chart</b><small>Bar, line, pie + more</small></span></button>
+          <button draggable="true" data-add="gallery"><span class="module-icon">▧</span><span><b>Image window</b><small>One or many creatives</small></span></button>
+          <button draggable="true" data-add="text"><span class="module-icon">¶</span><span><b>Rich text</b><small>Insights and recommendations</small></span></button>
+          <button draggable="true" data-add="control"><span class="module-icon">⌄</span><span><b>Report control</b><small>Button, dropdown or slider</small></span></button>
+          <button draggable="true" data-add="divider"><span class="module-icon">—</span><span><b>Section divider</b><small>Label a report section</small></span></button>
+        </div>
+
+        <div class="data-panel">
+          <div class="panel-head compact"><div><span class="eyebrow">Connect</span><h2>Report data</h2></div></div>
+          <label class="drop-file" id="data-drop">Drop CSV, JSON or XLSX here<input type="file" id="data-file" accept=".csv,.json,.xlsx,.xlsm"></label>
+          <button class="text-button" id="paste-data">Paste tabular data</button>
+          <div id="data-summary" class="data-summary">Sample campaign data · 3 rows</div>
+          <button class="button data-edit-button" id="edit-data">Edit data in this window</button>
+          <button class="text-button danger" id="clear-data">Clear data</button>
+        </div>
+      </aside>
+
+      <main class="stage-wrap">
+        <div class="stage-tools">
+          <div><span class="status-dot"></span><span id="save-status">Saved locally</span></div>
+          <div class="zoom-controls"><button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-label">80%</span><button id="zoom-in" aria-label="Zoom in">+</button></div>
+        </div>
+        <div class="stage-scroller">
+          <div id="report-stage" class="report-stage" tabindex="0">
+            <section id="report-header" class="report-header selected" data-select="header">
+              <div class="header-overlay"></div>
+              <div class="report-brand"><span class="brand-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="MSD mark"></span><span id="brand-name">MSD GCC</span></div>
+              <div class="header-copy"><div id="header-kicker">CAMPAIGN PERFORMANCE REPORT</div><h1 id="header-title">UAE Lung Cancer Awareness Campaign</h1><p id="header-subtitle">A clear, static view of social media reach, engagement and creative performance.</p></div>
+            </section>
+            <section id="canvas" class="report-grid" aria-label="Report canvas"></section>
+            <footer id="report-footer">#1 Confidential - Not for Public Consumption or Distribution</footer>
+          </div>
+        </div>
+      </main>
+
+      <aside class="right-panel panel">
+        <div class="panel-head"><div><span class="eyebrow">Edit</span><h2 id="inspector-title">Report header</h2></div><button id="delete-block" class="icon-button hidden" title="Delete module">×</button></div>
+        <div id="inspector" class="inspector"></div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <dialog id="paste-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">Quick import</span><h2>Paste data</h2></div><button value="cancel" class="icon-button">×</button></div>
+      <p>Copy rows from Excel or Sheets, including the header row.</p>
+      <textarea id="paste-area" placeholder="Platform&#9;Reach&#9;Impressions&#10;Meta&#9;2380534&#9;3014114"></textarea>
+      <div class="dialog-actions"><button value="cancel" class="button ghost">Cancel</button><button id="apply-paste" value="default" class="button primary">Use this data</button></div>
+    </form>
+  </dialog>
+  <dialog id="data-dialog" class="data-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">Data workspace</span><h2>Edit report data</h2></div><button value="cancel" class="icon-button">×</button></div>
+      <p>Edit cells directly. Column names drive the fields available to KPI cards, charts and controls.</p>
+      <div class="data-grid-wrap"><table id="data-grid"></table></div>
+      <div class="data-editor-actions">
+        <button type="button" class="button ghost" id="add-data-row">+ Add row</button>
+        <button type="button" class="button ghost" id="add-data-column">+ Add column</button>
+      </div>
+      <div class="dialog-actions"><button value="cancel" class="button ghost">Cancel</button><button type="button" id="save-data-edits" class="button primary">Apply data changes</button></div>
+    </form>
+  </dialog>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
