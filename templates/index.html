@@ -3,21 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>MSD Social Media Report Builder</title>
+  <title>reporter.io</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 80 80%27%3E%3Crect width=%2780%27 height=%2780%27 rx=%2716%27 fill=%27%23173b38%27/%3E%3Ctext x=%2720%27 y=%2758%27 font-size=%2755%27 fill=%27white%27%3Er.%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
   <div class="app-shell">
     <header class="app-bar">
       <div class="app-brand">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="MSD mark">
-        <div><strong>Social Media Report Builder</strong><span>Local workspace</span></div>
+        <span class="app-monogram" aria-hidden="true">r.</span>
+        <div><strong>reporter.io</strong><span>Your local report studio</span></div>
       </div>
       <div class="app-actions">
+        <button class="button" id="open-settings">Settings</button>
+        <button class="button" id="templates">Templates</button>
+        <label class="button file-button">Import report<input id="import-report" type="file" accept=".pptx,.html,.htm"></label>
         <button class="button ghost" id="new-report">New</button>
         <button class="button ghost" id="save-project">Save project</button>
         <label class="button ghost file-button">Open project<input id="open-project" type="file" accept="application/json"></label>
         <button class="button primary" id="export-report">Export one HTML file</button>
+        <button class="button" id="export-pdf">PDF</button>
+        <button class="button pptx-export" id="export-pptx" disabled aria-disabled="true" title="Choose Presentation canvas to export PPTX">PPTX</button>
       </div>
     </header>
 
@@ -46,14 +52,18 @@
 
       <main class="stage-wrap">
         <div class="stage-tools">
+          <button class="button" id="canvas-setup">Canvas setup</button>
           <div><span class="status-dot"></span><span id="save-status">Saved locally</span></div>
           <div class="zoom-controls"><button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-label">80%</span><button id="zoom-in" aria-label="Zoom in">+</button></div>
         </div>
+        <div id="page-tools" hidden><div id="page-list"></div><div class="page-actions"><button id="page-previous">Previous page</button><button id="page-next">Next page</button><button id="add-page">+ Page</button><button id="duplicate-page">Duplicate</button><button id="page-earlier">Move earlier</button><button id="page-later">Move later</button><button id="delete-page">Delete</button></div></div>
+        <div id="layout-warning" role="status"></div>
+        <details id="export-notes" hidden></details>
         <div class="stage-scroller">
           <div id="report-stage" class="report-stage" tabindex="0">
             <section id="report-header" class="report-header selected" data-select="header">
               <div class="header-overlay"></div>
-              <div class="report-brand"><span class="brand-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="MSD mark"></span><span id="brand-name">MSD GCC</span></div>
+              <div class="report-brand"><span class="brand-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Report logo"></span><span id="brand-name"></span></div>
               <div class="header-copy"><div id="header-kicker">CAMPAIGN PERFORMANCE REPORT</div><h1 id="header-title">UAE Lung Cancer Awareness Campaign</h1><p id="header-subtitle">A clear, static view of social media reach, engagement and creative performance.</p></div>
             </section>
             <section id="canvas" class="report-grid" aria-label="Report canvas"></section>
@@ -90,6 +100,20 @@
       <div class="dialog-actions"><button value="cancel" class="button ghost">Cancel</button><button type="button" id="save-data-edits" class="button primary">Apply data changes</button></div>
     </form>
   </dialog>
+  <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+    <form id="settings-form">
+      <div class="dialog-head"><div><span class="eyebrow">reporter.io</span><h2 id="settings-title">Settings</h2></div><button type="button" id="close-settings" class="icon-button" aria-label="Close settings">×</button></div>
+      <p>Style this report, save reusable themes, and choose defaults for your workspace.</p>
+      <nav class="settings-tabs" aria-label="Settings sections"><button type="button" data-settings-tab="theme">Theme & fonts</button><button type="button" data-settings-tab="report">Report</button><button type="button" data-settings-tab="workspace">Workspace</button></nav>
+      <div id="settings-content"></div>
+      <p id="settings-error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" id="cancel-settings" class="button">Cancel</button><button type="submit" class="button primary">Save settings</button></div>
+    </form>
+  </dialog>
+  <dialog id="feature-dialog" class="settings-dialog" aria-labelledby="feature-title"><div class="feature-dialog-inner"><div class="dialog-head"><h2 id="feature-title"></h2><button type="button" id="close-feature" class="icon-button" aria-label="Close">×</button></div><div id="feature-body"></div></div></dialog>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='settings.js') }}"></script>
+  <script src="{{ url_for('static', filename='features.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

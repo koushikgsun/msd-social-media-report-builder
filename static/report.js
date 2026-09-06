@@ -1,8 +1,8 @@
 (function () {
   const model = window.REPORT_MODEL || {};
   const root = document.getElementById('report-root');
-  const colors = ['#00857C', '#0C2340', '#6ECEB2', '#688CE8', '#BFED33', '#5450E4', '#F5A623', '#D44C7D'];
-  const state = { globalFilters: {}, targetFilters: {}, controlValues: {} };
+  const colors = ReportTheme.chartColors(model.theme);
+  const state = { globalFilters: {}, targetFilters: {}, controlValues: {}, ...model.view };
   const esc = value => String(value ?? '').replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char]));
   const asset = url => url && url.startsWith('data:') ? url : url || '';
   const num = value => {
@@ -22,7 +22,7 @@
   }
 
   function rowsFor(block) {
-    let rows = model.data?.rows || [];
+    let rows = block.data?.rows || model.data?.rows || [];
     const filters = { ...state.globalFilters, ...(state.targetFilters[block.id] || {}) };
     Object.entries(filters).forEach(([field, value]) => {
       if (value !== '' && value != null) rows = rows.filter(row => String(row[field]) === String(value));
@@ -40,77 +40,28 @@
     return values.reduce((a, b) => a + b, 0);
   }
 
-  function fmt(value, kind = 'number') {
-    if (kind === 'currency') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
-    if (kind === 'percent') return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value) + '%';
-    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
-  }
+  function fmt(value,kind){return ReportTheme.format(value,kind,model.settings)}
+  function grouped(block){return ReportTheme.groupData(rowsFor(block),(block.data||model.data)?.placeholder?{...block,operation:'sum'}:block)}
 
-  function grouped(block) {
-    const groups = new Map();
-    rowsFor(block).forEach(row => {
-      const key = String(row[block.xField] ?? 'Unspecified');
-      const value = block.operation === 'count' ? 1 : num(row[block.yField]);
-      groups.set(key, (groups.get(key) || 0) + value);
-    });
-    return [...groups].slice(0, 20);
-  }
-
-  function chartSvg(block) {
-    const data = grouped(block);
-    if (!data.length) return '<div class="small">No rows match this view.</div>';
-    const type = block.chartType || 'bar', width = 700, height = Math.max(220, Number(block.chartHeight) || 300), pad = 42;
-    const max = Math.max(...data.map(item => Math.abs(item[1])), 1);
-    if (type === 'pie' || type === 'doughnut') {
-      const total = data.reduce((sum, item) => sum + Math.abs(item[1]), 0) || 1;
-      let angle = -Math.PI / 2;
-      const cx = 350, cy = height / 2, radius = Math.min(110, height / 2 - 18);
-      const parts = data.map((item, index) => {
-        const delta = Math.abs(item[1]) / total * Math.PI * 2, end = angle + delta;
-        const x1 = cx + radius * Math.cos(angle), y1 = cy + radius * Math.sin(angle);
-        const x2 = cx + radius * Math.cos(end), y2 = cy + radius * Math.sin(end);
-        const path = `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${delta > Math.PI ? 1 : 0} 1 ${x2} ${y2} Z`;
-        angle = end;
-        return `<path d="${path}" fill="${colors[index % colors.length]}"/>`;
-      }).join('');
-      return `<svg viewBox="0 0 ${width} ${height}" role="img">${parts}${type === 'doughnut' ? `<circle cx="${cx}" cy="${cy}" r="58" fill="white"/>` : ''}</svg>`;
-    }
-    if (type === 'horizontalBar') {
-      const barHeight = Math.max(12, (height - pad * 2) / data.length - 8);
-      return `<svg viewBox="0 0 ${width} ${height}" role="img">${data.map((item, index) => {
-        const y = pad + index * ((height - pad * 2) / data.length), barWidth = (width - 210) * Math.abs(item[1]) / max;
-        return `<text x="5" y="${y + barHeight * .75}" font-size="12" fill="#506273">${esc(item[0]).slice(0, 20)}</text><rect x="150" y="${y}" width="${barWidth}" height="${barHeight}" rx="4" fill="${colors[index % colors.length]}"/><text x="${155 + barWidth}" y="${y + barHeight * .75}" font-size="11" fill="#506273">${fmt(item[1])}</text>`;
-      }).join('')}</svg>`;
-    }
-    const step = (width - pad * 2) / data.length;
-    const points = data.map((item, index) => [pad + step * index + step / 2, height - pad - (Math.abs(item[1]) / max) * (height - pad * 2)]);
-    const axes = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#cbd5dc"/>`;
-    if (type === 'line' || type === 'area') {
-      const path = points.map((point, index) => (index ? 'L' : 'M') + point.join(' ')).join(' ');
-      return `<svg viewBox="0 0 ${width} ${height}" role="img">${axes}${type === 'area' ? `<path d="${path} L ${points.at(-1)[0]} ${height - pad} L ${points[0][0]} ${height - pad} Z" fill="#6ECEB255"/>` : ''}<path d="${path}" fill="none" stroke="#00857C" stroke-width="4"/>${points.map((point, index) => `<circle cx="${point[0]}" cy="${point[1]}" r="5" fill="#00857C"/><text x="${point[0]}" y="${height - 12}" text-anchor="middle" font-size="11" fill="#506273">${esc(data[index][0]).slice(0, 12)}</text>`).join('')}</svg>`;
-    }
-    return `<svg viewBox="0 0 ${width} ${height}" role="img">${axes}${data.map((item, index) => {
-      const barWidth = step * .62, barHeight = (Math.abs(item[1]) / max) * (height - pad * 2), x = pad + index * step + step * .19, y = height - pad - barHeight;
-      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="5" fill="${colors[index % colors.length]}"/><text x="${x + barWidth / 2}" y="${height - 12}" text-anchor="middle" font-size="11" fill="#506273">${esc(item[0]).slice(0, 12)}</text>`;
-    }).join('')}</svg>`;
-  }
+  function chartSvg(block){return ReportTheme.chartSvg(grouped(block),block,model.theme)}
 
   function renderBlock(block) {
     const span = block.span || 12;
+    const colors=ReportTheme.chartColors(model.theme,block);
     if (block.type === 'kpi') {
-      const value = aggregate(rowsFor(block), block.field, block.operation);
-      return `<section class="block" style="--span:${span}"><div class="card kpi"><div class="label">${esc(block.title)}</div><div class="value">${fmt(value, block.format)}</div><div class="note">${esc(block.note)}</div>${block.delta ? `<div class="delta">${esc(block.delta)}</div>` : ''}${sourceHtml(block.source)}</div></section>`;
+      const value = (block.data||model.data)?.placeholder?0:aggregate(rowsFor(block), block.field, block.operation);
+      return `<section class="block" data-id="${esc(block.id)}" style="--span:${span};${esc(ReportTheme.blockStyle(model.theme,block))}"><div class="card kpi"><div class="label">${esc(block.title)}</div><div class="value">${fmt(value, block.format)}</div><div class="note">${esc(block.note)}</div>${block.delta ? `<div class="delta">${esc(block.delta)}</div>` : ''}${sourceHtml(block.source)}</div></section>`;
     }
     if (block.type === 'chart') {
-      const legend = grouped(block).map((item, index) => `<span><i style="background:${colors[index % colors.length]}"></i>${esc(item[0])}</span>`).join('');
-      return `<section class="block" style="--span:${span}"><div class="card"><h2>${esc(block.title)}</h2><div class="chart-box" style="min-height:${Number(block.chartHeight) || 290}px;height:${Number(block.chartHeight) || 290}px">${chartSvg(block)}</div><div class="chart-legend">${legend}</div>${sourceHtml(block.source)}</div></section>`;
+      const legend = ReportTheme.legendData(grouped(block),block).map((item, index) => `<span><i style="background:${colors[index % colors.length]}"></i>${esc(item[0])}</span>`).join('');
+      return `<section class="block" data-id="${esc(block.id)}" style="--span:${span};${esc(ReportTheme.blockStyle(model.theme,block))}"><div class="card"><h2>${esc(block.title)}</h2><div class="chart-box" style="min-height:${Number(block.chartHeight) || 290}px;height:${Number(block.chartHeight) || 290}px">${chartSvg(block)}</div><div class="chart-legend">${legend}</div>${sourceHtml(block.source)}</div></section>`;
     }
     if (block.type === 'gallery') {
       const images = (block.images || []).map(image => `<article class="creative"><img src="${asset(image.url)}" alt="${esc(image.title)}"><div class="cap"><span class="pill">${esc(image.tag || 'Creative')}</span><h3>${esc(image.title)}</h3><div class="small">${esc(image.caption)}</div>${sourceHtml(image.source, 'creative-source')}</div></article>`).join('');
-      return `<section class="block" style="--span:${span}"><div class="card"><h2>${esc(block.title)}</h2><div class="gallery-grid" style="--image-cols:${Math.min(block.columns || 2, 3)}">${images}</div>${sourceHtml(block.source)}</div></section>`;
+      return `<section class="block" data-id="${esc(block.id)}" style="--span:${span};${esc(ReportTheme.blockStyle(model.theme,block))}"><div class="card"><h2>${esc(block.title)}</h2><div class="gallery-grid" style="--image-cols:${Math.min(block.columns || 2, 3)}">${images}</div>${sourceHtml(block.source)}</div></section>`;
     }
-    if (block.type === 'text') return `<section class="block" style="--span:${span}"><div class="card tone-${esc(block.tone || 'plain')}"><h2>${esc(block.title)}</h2><div class="rich-content">${block.html || ''}</div>${sourceHtml(block.source)}</div></section>`;
-    if (block.type === 'divider') return `<section class="block" style="--span:${span}"><div class="section-divider">${esc(block.title)}</div>${sourceHtml(block.source)}</section>`;
+    if (block.type === 'text') return `<section class="block" data-id="${esc(block.id)}" style="--span:${span};${esc(ReportTheme.blockStyle(model.theme,block))}"><div class="card tone-${esc(block.tone || 'plain')}"><h2>${esc(block.title)}</h2><div class="rich-content">${block.html || ''}</div>${sourceHtml(block.source)}</div></section>`;
+    if (block.type === 'divider') return `<section class="block" data-id="${esc(block.id)}" style="--span:${span};${esc(ReportTheme.blockStyle(model.theme,block))}"><div class="section-divider">${esc(block.title)}</div>${sourceHtml(block.source)}</section>`;
     if (block.type === 'control') {
       const values = [...new Set((model.data?.rows || []).map(row => row[block.field]).filter(value => value != null))];
       const current = state.controlValues[block.id] ?? '';
@@ -120,7 +71,7 @@
         const index = Math.max(0, values.findIndex(value => String(value) === String(current)));
         control = `<input class="report-control" data-control="${block.id}" type="range" min="0" max="${Math.max(values.length - 1, 0)}" value="${index}"><span data-value="${block.id}">${esc(values[index] ?? '')}</span>`;
       } else control = `<select class="report-control" data-control="${block.id}"><option value="">All</option>${values.map(value => `<option value="${esc(value)}" ${String(value) === String(current) ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select>`;
-      return `<section class="block" style="--span:${span}"><div class="card control-card"><span class="control-label">${esc(block.title)}</span>${control}${sourceHtml(block.source)}</div></section>`;
+      return `<section class="block" data-id="${esc(block.id)}" style="--span:${span};${esc(ReportTheme.blockStyle(model.theme,block))}"><div class="card control-card"><span class="control-label">${esc(block.title)}</span>${control}${sourceHtml(block.source)}</div></section>`;
     }
     return '';
   }
@@ -145,11 +96,16 @@
   }
 
   function render() {
-    const header = model.header || {};
-    const background = header.backgroundImage ? `background-image:url('${asset(header.backgroundImage)}')` : '';
-    root.innerHTML = `<header class="report-header" style="background-color:${esc(header.backgroundColor || '#0C2340')};${background};--overlay:${header.overlay ?? .2}"><div class="header-overlay"></div><div class="header-inner"><div class="report-brand"><span class="brand-mark"><img src="${asset(model.logoData)}" alt="MSD mark"></span><span>${esc(header.brand || 'MSD GCC')}</span></div><div class="header-copy"><div class="header-kicker">${esc(header.kicker || 'CAMPAIGN PERFORMANCE REPORT')}</div><h1>${esc(header.title)}</h1><p>${esc(header.subtitle)}</p></div></div></header><main class="report-main"><div class="report-grid">${(model.blocks || []).map(renderBlock).join('')}</div></main><footer class="report-footer">${esc(model.footer || '')}</footer>`;
+    const header=model.header||{},layout=model.layout||{},fixed=layout.mode&&layout.mode!=='report';
+    const pages=fixed?(model.pages||[{id:'page-1'}]):[{id:null}];
+    const headerHtml=(page)=>{const mode=page.headerMode||'custom';if(fixed&&mode==='none')return '';return `<header class="report-header ${fixed&&mode==='banner'?'compact-banner':''}" data-header-mode="${mode}"><div class="header-overlay"></div><div class="header-inner"><div class="report-brand"><span class="brand-mark"><img src="${asset(header.logoImage||model.logoData)}" alt="Report logo"></span><span>${esc(header.brand||'')}</span></div><div class="header-copy"><div class="header-kicker">${esc(header.kicker||'')}</div><h1>${esc(header.title||'')}</h1><p>${esc(header.subtitle||'')}</p></div></div></header>`};
+    root.innerHTML=pages.map(page=>`<div class="report-page ${fixed?'fixed-canvas':''}" data-page-id="${esc(page.id||'report')}">${!fixed||layout.showHeader!==false?headerHtml(page):''}<main class="report-main"><div class="report-grid">${(model.blocks||[]).filter(b=>!fixed||!b.pageId||b.pageId===page.id).map(renderBlock).join('')}</div></main>${!fixed?`<footer class="report-footer">${esc(model.footer||'')}</footer>`:''}</div>`).join('');
+    ReportTheme.apply(root,model.theme);
+    root.style.setProperty('--card-radius',`${model.settings?.radius??16}px`);root.style.setProperty('--card-padding',`${model.settings?.padding??22}px`);
+    root.querySelectorAll('.report-header').forEach(el=>ReportTheme.applyHeader(el,header,model.theme,model.logoData));
+    root.querySelectorAll('.report-page').forEach(page=>{if(fixed){page.style.width=layout.width+'px';page.style.height=layout.height+'px';page.style.background=(model.pages||[]).find(p=>p.id===page.dataset.pageId)?.background||'var(--report-background)'}page.querySelectorAll('[data-id]').forEach(el=>{const b=model.blocks.find(b=>b.id===el.dataset.id);if(fixed&&b.frame){const f=b.frame;el.style.left=f.x+'px';el.style.top=f.y+'px';el.style.width=f.w+'px';el.style.minHeight=f.h+'px';el.style.height=b.imported?f.h+'px':'auto';if(b.type==='chart'){const chart=el.querySelector('.chart-box');chart.style.height=chart.style.minHeight=Math.max(80,f.h-(b.imported?(b.title?70:42):100))+'px'}}if(b.imported){el.classList.add('imported-object');el.querySelectorAll('.card').forEach(card=>{card.style.background=b.fill||'transparent';card.style.border='0';card.style.padding='0';card.style.boxShadow='none'});const h=el.querySelector('h2');if(h&&(b.type!=='chart'||!b.title))h.hidden=true}});if(!fixed)scheduleMasonry(page.querySelector('.report-grid'))});
     bindControls();
-    scheduleMasonry(root.querySelector('.report-grid'));
+    if(fixed){let style=document.getElementById('page-size');if(!style){style=document.createElement('style');style.id='page-size';document.head.append(style)}style.textContent=`@page{size:${layout.width}px ${layout.height}px;margin:0}`}
   }
 
   function bindControls() {
